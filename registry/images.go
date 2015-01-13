@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/api/v2"
 	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/manifest"
@@ -18,6 +19,7 @@ func imageManifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 	imageManifestHandler := &imageManifestHandler{
 		Context: ctx,
 		Tag:     ctx.vars["tag"],
+		Digest:  ctx.vars["digest"],
 	}
 
 	imageManifestHandler.log = imageManifestHandler.log.WithField("tag", imageManifestHandler.Tag)
@@ -33,13 +35,14 @@ func imageManifestDispatcher(ctx *Context, r *http.Request) http.Handler {
 type imageManifestHandler struct {
 	*Context
 
-	Tag string
+	Tag    string
+	Digest string
 }
 
 // GetImageManifest fetches the image manifest from the storage backend, if it exists.
 func (imh *imageManifestHandler) GetImageManifest(w http.ResponseWriter, r *http.Request) {
 	manifests := imh.services.Manifests()
-	manifest, err := manifests.Get(imh.Name, imh.Tag)
+	manifest, err := manifests.Get(imh.Name, imh.Tag, imh.Digest)
 
 	if err != nil {
 		imh.Errors.Push(v2.ErrorCodeManifestUnknown, err)
@@ -49,6 +52,11 @@ func (imh *imageManifestHandler) GetImageManifest(w http.ResponseWriter, r *http
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Header().Set("Content-Length", fmt.Sprint(len(manifest.Raw)))
+	digest, err := manifest.Digest()
+	if err != nil {
+		//TODO
+	}
+	w.Header().Set("Digest", digest.Hex())
 	w.Write(manifest.Raw)
 }
 
@@ -65,6 +73,7 @@ func (imh *imageManifestHandler) PutImageManifest(w http.ResponseWriter, r *http
 	}
 
 	if err := manifests.Put(imh.Name, imh.Tag, &manifest); err != nil {
+		log.Errorf("Error putting manifest: %v", err)
 		// TODO(stevvooe): These error handling switches really need to be
 		// handled by an app global mapper.
 		switch err := err.(type) {
@@ -92,6 +101,14 @@ func (imh *imageManifestHandler) PutImageManifest(w http.ResponseWriter, r *http
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
+	digest, err := manifest.Digest()
+	if err != nil {
+		//TODO
+	}
+	w.Header().Set("Digest", digest.Hex())
+	//TODO
+	//w.Header("Location", location)
 }
 
 // DeleteImageManifest removes the image with the given tag from the registry.

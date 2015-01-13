@@ -80,6 +80,8 @@ func (pm *pathMapper) path(spec pathSpec) (string, error) {
 	case manifestPathSpec:
 		// TODO(sday): May need to store manifest by architecture.
 		return path.Join(append(repoPrefix, v.name, "manifests", v.tag)...), nil
+	case manifestDigestPathSpec:
+		return path.Join(append(repoPrefix, v.name, "manifest_digests", v.tag, v.digest)...), nil
 	case layerLinkPathSpec:
 		components, err := digestPathComoponents(v.digest)
 		if err != nil {
@@ -142,6 +144,14 @@ type manifestPathSpec struct {
 }
 
 func (manifestPathSpec) pathSpec() {}
+
+type manifestDigestPathSpec struct {
+	name   string
+	tag    string
+	digest string
+}
+
+func (manifestDigestPathSpec) pathSpec() {}
 
 // layerLink specifies a path for a layer link, which is a file with a blob
 // id. The layer link will contain a content addressable blob id reference

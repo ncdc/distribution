@@ -24,6 +24,14 @@ var (
 		Description: `Tag of the target manifiest.`,
 	}
 
+	digestParameterDescriptor = ParameterDescriptor{
+		Name:        "digest",
+		Type:        "string",
+		Format:      digest.DigestRegexp.String(),
+		Required:    true,
+		Description: `Digest of the target manifest.`,
+	}
+
 	uuidParameterDescriptor = ParameterDescriptor{
 		Name:        "uuid",
 		Type:        "opaque",
@@ -673,6 +681,151 @@ var routeDescriptors = []RouteDescriptor{
 							{
 								Name:        "Unknown Manifest",
 								Description: "The specified `name` or `tag` are unknown to the registry and the delete was unable to proceed. Clients can assume the manifest was already deleted if this response is returned.",
+								StatusCode:  http.StatusNotFound,
+								ErrorCodes: []ErrorCode{
+									ErrorCodeNameUnknown,
+									ErrorCodeManifestUnknown,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	},
+
+	{
+		Name:        RouteNameManifestDigest,
+		Path:        "/v2/{name:" + RepositoryNameRegexp.String() + "}/manifests/{tag:" + TagNameRegexp.String() + "}/{digest:" + digest.DigestRegexp.String() + "}",
+		Entity:      "Manifest",
+		Description: "Retrieve and delete manifests specified by tag and digest.",
+		Methods: []MethodDescriptor{
+			{
+				Method:      "GET",
+				Description: "Fetch the manifest identified by `name`, `tag`, and `digest`.",
+				Requests: []RequestDescriptor{
+					{
+						Headers: []ParameterDescriptor{
+							hostHeader,
+							authHeader,
+						},
+						PathParameters: []ParameterDescriptor{
+							nameParameterDescriptor,
+							tagParameterDescriptor,
+							digestParameterDescriptor,
+						},
+						Successes: []ResponseDescriptor{
+							{
+								Description: "The manifest idenfied by `name`, `tag`, and `digest`. The contents can be used to identify and resolve resources required to run the specified image.",
+								StatusCode:  http.StatusOK,
+								Headers: []ParameterDescriptor{
+									digestParameterDescriptor,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      manifestBody,
+								},
+							},
+						},
+						Failures: []ResponseDescriptor{
+							{
+								Description: "The name or tag was invalid.",
+								StatusCode:  http.StatusBadRequest,
+								ErrorCodes: []ErrorCode{
+									ErrorCodeNameInvalid,
+									ErrorCodeTagInvalid,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+							{
+								StatusCode:  http.StatusUnauthorized,
+								Description: "The client does not have access to the repository.",
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+								ErrorCodes: []ErrorCode{
+									ErrorCodeUnauthorized,
+								},
+							},
+							{
+								Description: "The named manifest is not known to the registry.",
+								StatusCode:  http.StatusNotFound,
+								ErrorCodes: []ErrorCode{
+									ErrorCodeNameUnknown,
+									ErrorCodeManifestUnknown,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+						},
+					},
+				},
+			},
+			{
+				Method:      "DELETE",
+				Description: "Delete the manifest identified by `name`, `tag`, and `digest`.",
+				Requests: []RequestDescriptor{
+					{
+						Headers: []ParameterDescriptor{
+							hostHeader,
+							authHeader,
+						},
+						PathParameters: []ParameterDescriptor{
+							nameParameterDescriptor,
+							tagParameterDescriptor,
+							digestParameterDescriptor,
+						},
+						Successes: []ResponseDescriptor{
+							{
+								StatusCode: http.StatusAccepted,
+							},
+						},
+						Failures: []ResponseDescriptor{
+							{
+								Name:        "Invalid Name or Tag or Digest",
+								Description: "The specified `name` or `tag` or `digest` were invalid and the delete was unable to proceed.",
+								StatusCode:  http.StatusBadRequest,
+								ErrorCodes: []ErrorCode{
+									ErrorCodeNameInvalid,
+									ErrorCodeTagInvalid,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+							{
+								StatusCode: http.StatusUnauthorized,
+								Headers: []ParameterDescriptor{
+									authChallengeHeader,
+									{
+										Name:        "Content-Length",
+										Type:        "integer",
+										Description: "Length of the JSON error response body.",
+										Format:      "<length>",
+									},
+								},
+								ErrorCodes: []ErrorCode{
+									ErrorCodeUnauthorized,
+								},
+								Body: BodyDescriptor{
+									ContentType: "application/json; charset=utf-8",
+									Format:      errorsBody,
+								},
+							},
+							{
+								Name:        "Unknown Manifest",
+								Description: "The specified `name` or `tag` or `digest` are unknown to the registry and the delete was unable to proceed. Clients can assume the manifest was already deleted if this response is returned.",
 								StatusCode:  http.StatusNotFound,
 								ErrorCodes: []ErrorCode{
 									ErrorCodeNameUnknown,

@@ -87,6 +87,18 @@ func (ub *URLBuilder) BuildManifestURL(name, tag string) (string, error) {
 	return manifestURL.String(), nil
 }
 
+// BuildManifestDigestURL constructs a url for the manifest identified by name and tag.
+func (ub *URLBuilder) BuildManifestDigestURL(name, tag, digest string) (string, error) {
+	route := ub.cloneRoute(RouteNameManifestDigest)
+
+	manifestDigestURL, err := route.URL("name", name, "tag", tag, "digest", digest)
+	if err != nil {
+		return "", err
+	}
+
+	return manifestDigestURL.String(), nil
+}
+
 // BuildBlobURL constructs the url for the blob identified by name and dgst.
 func (ub *URLBuilder) BuildBlobURL(name string, dgst digest.Digest) (string, error) {
 	route := ub.cloneRoute(RouteNameBlob)

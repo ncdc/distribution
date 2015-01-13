@@ -2,6 +2,8 @@ package manifest
 
 import (
 	"encoding/json"
+	"fmt"
+	"reflect"
 
 	"github.com/docker/distribution/digest"
 )
@@ -34,6 +36,44 @@ type Manifest struct {
 
 	// History is a list of unstructured historical data for v1 compatibility
 	History []History `json:"history"`
+}
+
+func toMap(in interface{}) (map[string]interface{}, error) {
+	out := make(map[string]interface{})
+
+	v := reflect.ValueOf(in)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+
+	// we only accept structs
+	if v.Kind() != reflect.Struct {
+		return nil, fmt.Errorf("ToMap only accepts structs; got %T", v)
+	}
+
+	typ := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		// gets us a StructField
+		fi := typ.Field(i)
+
+		out[fi.Name] = v.Field(i).Interface()
+
+	}
+	return out, nil
+}
+
+func (m *Manifest) Digest() (digest.Digest, error) {
+	manifestMap, err := toMap(m)
+	if err != nil {
+		return "", err
+	}
+
+	b, err := json.Marshal(manifestMap)
+	if err != nil {
+		return "", err
+	}
+
+	return digest.FromBytes(b)
 }
 
 // SignedManifest provides an envelope for a signed image manifest, including

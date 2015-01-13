@@ -6,6 +6,7 @@ import (
 	"path"
 	"strings"
 
+	log "github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/manifest"
 	"github.com/docker/distribution/storagedriver"
 	"github.com/docker/libtrust"
@@ -30,6 +31,11 @@ type ErrUnknownManifest struct {
 
 func (err ErrUnknownManifest) Error() string {
 	return fmt.Sprintf("unknown manifest name=%s tag=%s", err.Name, err.Tag)
+}
+
+func IsErrUnknownManifest(err error) bool {
+	_, ok := err.(ErrUnknownManifest)
+	return ok
 }
 
 // ErrManifestUnverified is returned when the registry is unable to verify
@@ -117,8 +123,16 @@ func (ms *manifestStore) Exists(name, tag string) (bool, error) {
 	return true, nil
 }
 
-func (ms *manifestStore) Get(name, tag string) (*manifest.SignedManifest, error) {
-	p, err := ms.path(name, tag)
+func (ms *manifestStore) Get(name, tag, digest string) (*manifest.SignedManifest, error) {
+	var (
+		p   string
+		err error
+	)
+	if len(digest) > 0 {
+		p, err = ms.digestPath(name, tag, digest)
+	} else {
+		p, err = ms.path(name, tag)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -158,6 +172,25 @@ func (ms *manifestStore) Put(name, tag string, manifest *manifest.SignedManifest
 	// TODO(stevvooe): Should we get old manifest first? Perhaps, write, then
 	// move to ensure a valid manifest?
 
+	if err := ms.driver.PutContent(p, manifest.Raw); err != nil {
+		return err
+	}
+
+	log.Infof("Calculating digest")
+	digest, err := manifest.Digest()
+	if err != nil {
+		log.Errorf("Error calculating digest: %v", err)
+		return err
+	}
+
+	log.Infof("Get digest path")
+	p, err = ms.digestPath(name, tag, digest.Hex())
+	if err != nil {
+		log.Errorf("Error getting path: %v", err)
+		return err
+	}
+
+	log.Infof("Putting content")
 	return ms.driver.PutContent(p, manifest.Raw)
 }
 
@@ -183,6 +216,14 @@ func (ms *manifestStore) path(name, tag string) (string, error) {
 	return ms.pathMapper.path(manifestPathSpec{
 		name: name,
 		tag:  tag,
+	})
+}
+
+func (ms *manifestStore) digestPath(name, tag, digest string) (string, error) {
+	return ms.pathMapper.path(manifestDigestPathSpec{
+		name:   name,
+		tag:    tag,
+		digest: digest,
 	})
 }
 
