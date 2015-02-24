@@ -27,6 +27,13 @@ type Repository interface {
 
 	// Layers returns a reference to this repository's layers service.
 	Layers() LayerService
+
+	Signatures() SignatureService
+}
+
+type SignatureService interface {
+	Get(dgst digest.Digest) ([][]byte, error)
+	Put(dgst digest.Digest, signatures ...[]byte) error
 }
 
 // ManifestService provides operations on image manifests.

@@ -2,6 +2,7 @@ package storage
 
 import (
 	"github.com/docker/distribution"
+	"github.com/docker/distribution/digest"
 	"github.com/docker/distribution/registry/api/v2"
 	storagedriver "github.com/docker/distribution/registry/storage/driver"
 	"golang.org/x/net/context"
@@ -86,4 +87,29 @@ func (repo *repository) Layers() distribution.LayerService {
 	return &layerStore{
 		repository: repo,
 	}
+}
+
+func (repo *repository) Signatures() distribution.SignatureService {
+	return &signatureStore{
+		rs: &revisionStore{
+			repository: repo,
+		},
+	}
+}
+
+type signatureStore struct {
+	rs *revisionStore
+}
+
+func (s *signatureStore) Get(dgst digest.Digest) ([][]byte, error) {
+	return s.rs.getSignatures(dgst)
+}
+
+func (s *signatureStore) Put(dgst digest.Digest, signatures ...[]byte) error {
+	for _, signature := range signatures {
+		if err := s.rs.putSignature(dgst, signature); err != nil {
+			return err
+		}
+	}
+	return nil
 }
