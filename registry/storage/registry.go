@@ -10,6 +10,8 @@ import (
 // registry is the top-level implementation of Registry for use in the storage
 // package. All instances should descend from this object.
 type registry struct {
+	manifestServiceCreator *ManifestServiceCreator
+
 	driver    storagedriver.StorageDriver
 	pm        *pathMapper
 	blobStore *blobStore
@@ -18,7 +20,7 @@ type registry struct {
 // NewRegistryWithDriver creates a new registry instance from the provided
 // driver. The resulting registry may be shared by multiple goroutines but is
 // cheap to allocate.
-func NewRegistryWithDriver(driver storagedriver.StorageDriver) distribution.Registry {
+func NewRegistryWithDriver(driver storagedriver.StorageDriver, manifestServiceCreator *ManifestServiceCreator) distribution.Registry {
 	bs := &blobStore{}
 
 	reg := &registry{
@@ -27,6 +29,7 @@ func NewRegistryWithDriver(driver storagedriver.StorageDriver) distribution.Regi
 
 		// TODO(sday): This should be configurable.
 		pm: defaultPathMapper,
+		manifestServiceCreator: manifestServiceCreator,
 	}
 
 	reg.blobStore.registry = reg
@@ -68,6 +71,9 @@ func (repo *repository) Name() string {
 // may be context sensitive in the future. The instance should be used similar
 // to a request local.
 func (repo *repository) Manifests() distribution.ManifestService {
+	if repo.manifestServiceCreator != nil {
+		return repo.manifestServiceCreator.CreateManifestService(repo.Name())
+	}
 	return &manifestStore{
 		repository: repo,
 		revisionStore: &revisionStore{

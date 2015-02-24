@@ -42,7 +42,8 @@ type App struct {
 		source notifications.SourceRecord
 	}
 
-	layerHandler storage.LayerHandler // allows dispatch of layer serving to external provider
+	layerHandler           storage.LayerHandler // allows dispatch of layer serving to external provider
+	newManifestServiceFunc storage.NewManifestServiceFunc
 }
 
 // Value intercepts calls context.Context.Value, returning the current app id,
@@ -90,7 +91,17 @@ func NewApp(ctx context.Context, configuration configuration.Configuration) *App
 	}
 
 	app.configureEvents(&configuration)
-	app.registry = storage.NewRegistryWithDriver(app.driver)
+
+	manifestHandlerType := configuration.ManifestHandler.Type()
+	var msc *storage.ManifestServiceCreator
+	if manifestHandlerType != "" {
+		msc, err = storage.GetManifestHandler(manifestHandlerType, configuration.ManifestHandler.Parameters(), app.driver)
+		if err != nil {
+			panic(fmt.Sprintf("unable to configure manifest handler (%s): %v", manifestHandlerType, err))
+		}
+	}
+
+	app.registry = storage.NewRegistryWithDriver(app.driver, msc)
 	authType := configuration.Auth.Type()
 
 	if authType != "" {

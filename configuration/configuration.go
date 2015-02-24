@@ -26,6 +26,8 @@ type Configuration struct {
 	// used to gate requests.
 	Auth Auth `yaml:"auth,omitempty"`
 
+	ManifestHandler ManifestHandler `yaml:"manifestHandler,omitempty"`
+
 	// LayerHandler specifies a middleware for serving image layers.
 	LayerHandler LayerHandler `yaml:"layerhandler,omitempty"`
 
@@ -347,6 +349,62 @@ func (layerHandler LayerHandler) MarshalYAML() (interface{}, error) {
 		return t, nil
 	}
 	return map[string]Parameters(layerHandler), nil
+}
+
+// ManifestHandler defines the configuration for middleware layer serving
+type ManifestHandler map[string]Parameters
+
+// Type returns the manifestHandler type
+func (manifestHandler ManifestHandler) Type() string {
+	// Return only key in this map
+	for k := range manifestHandler {
+		return k
+	}
+	return ""
+}
+
+// Parameters returns the Parameters map for a ManifestHandler configuration
+func (manifestHandler ManifestHandler) Parameters() Parameters {
+	return manifestHandler[manifestHandler.Type()]
+}
+
+// UnmarshalYAML implements the yaml.Unmarshaler interface
+// Unmarshals a single item map into a Storage or a string into a Storage type with no parameters
+func (manifestHandler *ManifestHandler) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var manifestMap map[string]Parameters
+	err := unmarshal(&manifestMap)
+	if err == nil {
+		if len(manifestMap) > 1 {
+			types := make([]string, 0, len(manifestMap))
+			for k := range manifestMap {
+				types = append(types, k)
+			}
+			return fmt.Errorf("Must provide exactly one manifestHandler type. Provided: %v", types)
+		}
+		*manifestHandler = manifestMap
+		return nil
+	}
+
+	var manifestHandlerType string
+	err = unmarshal(&manifestHandlerType)
+	if err == nil {
+		*manifestHandler = ManifestHandler{manifestHandlerType: Parameters{}}
+		return nil
+	}
+
+	return err
+}
+
+// MarshalYAML implements the yaml.Marshaler interface
+func (manifestHandler ManifestHandler) MarshalYAML() (interface{}, error) {
+	if manifestHandler.Parameters() == nil {
+		t := manifestHandler.Type()
+		if t == "" {
+			return nil, nil
+		}
+		return t, nil
+	}
+	return map[string]Parameters(manifestHandler), nil
 }
 
 // Parse parses an input configuration yaml document into a Configuration struct
