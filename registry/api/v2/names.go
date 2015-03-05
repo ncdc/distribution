@@ -15,10 +15,6 @@ const (
 	// single repository name slash-delimited component
 	RepositoryNameComponentMinLength = 2
 
-	// RepositoryNameComponentMaxLength is the maximum number of characters in a
-	// single repository name slash-delimited component
-	RepositoryNameComponentMaxLength = 30
-
 	// RepositoryNameMinComponents is the minimum number of slash-delimited
 	// components that a repository name must have
 	RepositoryNameMinComponents = 1
@@ -55,11 +51,6 @@ var (
 	// contains a component which is shorter than
 	// RepositoryNameComponentMinLength
 	ErrRepositoryNameComponentShort = fmt.Errorf("respository name component must be %v or more characters", RepositoryNameComponentMinLength)
-
-	// ErrRepositoryNameComponentLong is returned when a repository name
-	// contains a component which is longer than
-	// RepositoryNameComponentMaxLength
-	ErrRepositoryNameComponentLong = fmt.Errorf("respository name component must be %v characters or less", RepositoryNameComponentMaxLength)
 
 	// ErrRepositoryNameMissingComponents is returned when a repository name
 	// contains fewer than RepositoryNameMinComponents components
@@ -110,10 +101,6 @@ func ValidateRespositoryName(name string) error {
 	for _, component := range components {
 		if len(component) < RepositoryNameComponentMinLength {
 			return ErrRepositoryNameComponentShort
-		}
-
-		if len(component) > RepositoryNameComponentMaxLength {
-			return ErrRepositoryNameComponentLong
 		}
 
 		if !RepositoryNameComponentAnchoredRegexp.MatchString(component) {
